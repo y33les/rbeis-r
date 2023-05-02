@@ -1,0 +1,10 @@
+Package: rbeis
+Title: Rogers and Berriman Editing and Imputation System (RBEIS)
+Version: 0.0.1
+Authors@R: 
+    person("Phil", "Yeeles", , "Phil.Yeeles@ons.gov.uk", role = c("aut", "cre"))
+Description: R implementation of the Rogers and Berriman Imputation System (RBEIS), an imputation method developed at the UK Office for National Statistics.
+License: use_mit_license()
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.2
