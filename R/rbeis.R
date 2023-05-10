@@ -24,13 +24,14 @@ add_impute_col <- function(data, imp_var) {
   # TODO: Throw error or fix it if imp_var is given as a string (should be a tibble colname, no quotes)
   data %>%
     rowwise() %>%
-    mutate(`__RBEISImpute` = is.na({{imp_var}})) %>%
+    mutate(`__RBEISImpute` = is.na({{ imp_var }})) %>%
     ungroup()
 }
 
 assign_igroups <- function(data, aux_var_names) {
+  # aux_var_names seems OK if either strings or symbols; TODO: check inside impute
   data %>%
-    mutate(`__RBEISIGroup_temp` = pmap(select(data, {{aux_var_names}}), ~ paste0(as.character(c(...)), collapse = ""))) %>%
+    mutate(`__RBEISIGroup_temp` = pmap(select(data, {{ aux_var_names }}), ~ paste0(as.character(c(...)), collapse = ""))) %>%
     rowwise() %>%
     mutate(`__RBEISIGroup` = if (`__RBEISImpute`) "" else as.character(`__RBEISIGroup_temp`)) %>%
     select(-`__RBEISIGroup_temp`) %>%
@@ -38,6 +39,13 @@ assign_igroups <- function(data, aux_var_names) {
 }
 
 get_igroup_aux_var <- function(data, aux_var_name) {
+  data %>%
+    filter(!`__RBEISImpute`) %>%
+    select({{ aux_var_name }}, `__RBEISIGroup`) %>%
+    unique()
+}
+
+calc_distances <- function(data, aux_vars) {
   # TODO
 }
 
