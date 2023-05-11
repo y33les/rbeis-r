@@ -5,6 +5,7 @@ library(tibble)
 library(dplyr)
 library(magrittr)
 library(purrr)
+library(tidyr)
 
 d <- readr::read_csv("R/testdata.csv")
 
@@ -39,14 +40,21 @@ assign_igroups <- function(data, aux_var_names) {
 }
 
 get_igroup_aux_var <- function(data, aux_var_name) {
-  data %>%
+  var_tbl <- data %>%
     filter(!`__RBEISImpute`) %>%
     select({{ aux_var_name }}, `__RBEISIGroup`) %>%
-    unique()
+    unique() %>%
+    as.list()
+  var_list <- var_tbl$moma_count
+  names(var_list) <- var_tbl$`__RBEISIGroup`
+  return(var_list)
 }
 
 calc_distances <- function(data, aux_vars) {
-  # TODO
+  # aux_vars must be strings, not symbols; TODO: check if this is what we want / consistent with the rest of the functions
+  # data %>% select(all_of({{aux_vars}}))
+  ## map get_igroup_aux_var across aux_vars for each imputable record
+  ## calculate distances for each imputable record
 }
 
 #' @export
