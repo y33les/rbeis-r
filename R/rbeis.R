@@ -39,23 +39,41 @@ assign_igroups <- function(data, aux_var_names) {
     ungroup()
 }
 
-get_igroup_aux_var <- function(data, aux_var_name) {
+get_igroups_single_aux_var_vals <- function(data, aux_var_name) {
   var_tbl <- data %>%
     filter(!`__RBEISImpute`) %>%
-    select({{ aux_var_name }}, `__RBEISIGroup`) %>%
+    select(!!as.name(aux_var_name), `__RBEISIGroup`) %>%
     unique() %>%
-    as.list()
-  var_list <- var_tbl$moma_count
+    as.list() %>%
+    as.character # FIXME trying to make values all strings to join later on 2023-09-13
+  var_list <- var_tbl[[aux_var_name]]
   names(var_list) <- var_tbl$`__RBEISIGroup`
-  return(var_list)
+  var_list %>%
+    t %>%
+    as_tibble %>%
+    pivot_longer(cols=everything(),names_to="__RBEISIGroup",values_to=aux_var_name)
+}
+
+get_igroups_all_aux_var_vals <- function(data, aux_var_names) {
+  out <- map(aux_var_names, function(v) {get_igroups_single_aux_var_vals(data,v)})
+  out %>%
+    reduce(function(x,y){x %>% full_join(y,by="__RBEISIGroup")}) %>%
+    pivot_longer(!matches("__RBEISIGroup"),names_to="__RBEISIGroupVariable",values_to="__RBEISIGroupValue")
+}
+
+lookup_igroup_value <- function(ig_vals,var,igroup) {
+  ig_vals %>% filter(`__RBEISIGroup`==igroup,`__RBEISIGroupVariable`==var)
+  # FIXME finish writing this function 2023-09-13
 }
 
 calc_distances <- function(data, aux_vars) {
   # aux_vars must be strings, not symbols; TODO: check if this is what we want / consistent with the rest of the functions
-  # data %>% select(all_of({{aux_vars}}))
-  ## map get_igroup_aux_var across aux_vars for each imputable record
-  ## calculate distances for each imputable record
+  igroup_vals <- get_igroups_all_aux_var_vals(data,aux_vars)
+  # TODO: so it now returns a tibble of igroup values; what next?
+  # FIXME "subscript out of bounds" 2023-09-13
 }
+
+d %>% add_impute_col(book) %>% assign_igroups(c(artist_race_nwi,moma_count)) %>% calc_distances(c("artist_race_nwi","moma_count"))
 
 #' @export
 impute <- function(data, # Tibble
