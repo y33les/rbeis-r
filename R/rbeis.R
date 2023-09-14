@@ -45,7 +45,7 @@ get_igroups_single_aux_var_vals <- function(data, aux_var_name) {
     select(!!as.name(aux_var_name), `__RBEISIGroup`) %>%
     unique() %>%
     as.list() %>%
-    as.character # FIXME trying to make values all strings to join later on 2023-09-13
+    map(as.character)
   var_list <- var_tbl[[aux_var_name]]
   names(var_list) <- var_tbl$`__RBEISIGroup`
   var_list %>%
@@ -62,18 +62,31 @@ get_igroups_all_aux_var_vals <- function(data, aux_var_names) {
 }
 
 lookup_igroup_value <- function(ig_vals,var,igroup) {
-  ig_vals %>% filter(`__RBEISIGroup`==igroup,`__RBEISIGroupVariable`==var)
-  # FIXME finish writing this function 2023-09-13
+  (ig_vals %>% filter(`__RBEISIGroup`==igroup,`__RBEISIGroupVariable`==var))$`__RBEISIGroupValue`
 }
 
-calc_distances <- function(data, aux_vars) {
+calc_single_distance <- function(df, var, value, igroup, ig_vals) {
+  # FIXME: Is using NaNs really a proper solution here?  NAs would make more sense but cause problems down the line as map just cuts them out.  Will NaNs cause other problems?  None of the DFs should return NaN though.
+  if(igroup=="") NaN else df(value,lookup_igroup_value(ig_vals,var,igroup))
+}
+
+calc_distances <- function(data, df, aux_vars) {
   # aux_vars must be strings, not symbols; TODO: check if this is what we want / consistent with the rest of the functions
   igroup_vals <- get_igroups_all_aux_var_vals(data,aux_vars)
-  # TODO: so it now returns a tibble of igroup values; what next?
-  # FIXME "subscript out of bounds" 2023-09-13
+  dists <- map(aux_vars,function(v){
+  vals <- data %>% select(v) %>% as_vector
+  igroups <- data %>% select(`__RBEISIGroup`) %>% as_vector
+  map(1:length(vals), function(i){calc_single_distance(df,v,vals[i],igroups[i],igroup_vals)}) %>% as_tibble_col(column_name = paste0("__RBEISDistance__",v))}) %>% reduce(tibble) %>% mutate_all(as_vector)
+  data %>% add_column(dists)
+  # TODO 2023-09-14: we now have separate columns for each variable's distances - the rest of this function will be to calculate the total distance and deselect these temporary `__RBEISDistance__*` columns
 }
 
-d %>% add_impute_col(book) %>% assign_igroups(c(artist_race_nwi,moma_count)) %>% calc_distances(c("artist_race_nwi","moma_count"))
+df1 <- compose(as.numeric,`!=`)
+tigvs <- d %>% add_impute_col(book) %>% assign_igroups(c(artist_race_nwi,moma_count)) %>% get_igroups_all_aux_var_vals(c("artist_race_nwi","moma_count"))
+rm(tigvs)
+
+#d %>% add_impute_col(book) %>% assign_igroups(c(artist_race_nwi,moma_count)) %>% calc_distances(df1,c("artist_race_nwi",moma_count"))
+d %>% add_impute_col(book) %>% assign_igroups(c(artist_race_nwi)) %>% calc_distances(df1,c("moma_count","whitney_count"))
 
 #' @export
 impute <- function(data, # Tibble
