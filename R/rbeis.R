@@ -7,7 +7,8 @@ library(magrittr)
 library(purrr)
 library(tidyr)
 
-d <- readr::read_csv("R/testdata.csv")
+# d <- readr::read_csv("R/testdata.csv") # With missing data
+d <- readr::read_csv("R/testdata_full.csv") # Full dataset
 
 check_missing_auxvars <- function(data, aux_vars) {
   if (data %>%
@@ -95,6 +96,7 @@ calc_single_distance <- function(df, var, value, igroup, ig_vals) {
     NaN
   else
     df(value, lookup_igroup_value(ig_vals, var, igroup))
+  # FIXME: weights!!
 }
 
 calc_distances <- function(data, df, aux_vars) {
@@ -107,17 +109,30 @@ calc_distances <- function(data, df, aux_vars) {
       calc_single_distance(df, v, vals[i], igroups[i], igroup_vals)
     }) %>% as_tibble_col(column_name = paste0("__RBEISDistance__", v))
   }) %>% reduce(tibble) %>% mutate_all(as_vector)
+  dists <-
+    dists %>% rowwise %>% mutate(`__RBEISDistanceSum` = rowSums(across(where(is.numeric)))) %>% ungroup # %>% select(`__RBEISDistanceSum`) # TODO: uncomment to remove intermediate distance columns
   data %>% add_column(dists)
   # TODO 2023-09-14: we now have separate columns for each variable's distances - the rest of this function will be to calculate the total distance and deselect these temporary `__RBEISDistance__*` columns
 }
 
-df1 <- compose(as.numeric, `!=`)
-tigvs <-
-  d %>% add_impute_col(book) %>% assign_igroups(c(artist_race_nwi, moma_count)) %>% get_igroups_all_aux_var_vals(c("artist_race_nwi", "moma_count"))
-rm(tigvs)
+calc_donors <- function(data, ratio = 1) {
+  # data %>% group_by(`__RBEISIGroup`) %>% mutate(`__RBEISDonorThreshold`=ratio*min(`__RBEISDistanceSum`)) %>% select(artist_name,`__RBEISImpute`,`__RBEISIGroup`,`__RBEISDistanceSum`,`__RBEISDonorThreshold`)
+  data %>% group_by(`__RBEISIGroup`) %>% mutate(`__RBEISDonorThreshold` =
+                                                  if (0 == min(`__RBEISDistanceSum`))
+                                                    9
+                                                else
+                                                  ratio * min(`__RBEISDistanceSum`)) %>% select(
+                                                    artist_name,
+                                                    `__RBEISImpute`,
+                                                    `__RBEISIGroup`,
+                                                    `__RBEISDistanceSum`,
+                                                    `__RBEISDonorThreshold`
+                                                  ) %>% ungroup
+}
 
-#d %>% add_impute_col(book) %>% assign_igroups(c(artist_race_nwi,moma_count)) %>% calc_distances(df1,c("artist_race_nwi",moma_count"))
-d %>% add_impute_col(book) %>% assign_igroups(c(artist_race_nwi)) %>% calc_distances(df1, c("moma_count", "whitney_count"))
+df1 <- compose(as.numeric, `!=`)
+
+d %>% add_impute_col(book) %>% assign_igroups(c(artist_race_nwi)) %>% calc_distances(df1, c("moma_count", "whitney_count")) %>% calc_donors
 
 #' @export
 impute <- function(data,
